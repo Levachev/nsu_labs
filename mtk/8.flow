@@ -1,0 +1,151 @@
+import lingo/pegcode/driver;
+import lingo/peg;
+import lingo/linecolumn;
+import text/deserialize_string;
+import lingo/pegaction;
+import ds/hashmap;
+
+    ArExpr ::= ArSum, ArMul, ArDif, ArDiv, ArInt, ArVar, ArUnar;
+        ArSum(lhs : ArExpr, rhs : ArExpr);
+        ArMul(lhs : ArExpr, rhs : ArExpr);
+        ArDif(lhs : ArExpr, rhs : ArExpr);
+        ArDiv(lhs : ArExpr, rhs : ArExpr);
+        ArUnar(S : ArExpr);
+        ArInt(val : string);
+        ArVar(val : string);
+
+    s2ar(str : string) -> ArExpr{
+        e_gr = "#include grammar2.lingo";
+        parsic(
+            compilePegGrammar(e_gr),
+            str,
+            SemanticActions(setTree(defaultPegActions.t, "CreateString", \s ->s[0]))
+        )
+    }
+
+
+
+    not_ar2dif(e : ArExpr) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): sumDiff(not_ar2dif(rhs), not_ar2dif(lhs));
+            ArDif(lhs, rhs): difDiff(not_ar2dif(rhs), not_ar2dif(lhs));
+            ArMul(lhs, rhs): mulDefault(not_ar2dif(rhs), not_ar2dif(lhs));
+            ArDiv(lhs, rhs): devDefault(not_ar2dif(rhs), not_ar2dif(lhs));
+            ArVar(val): val;
+            ArInt(val): val;
+            ArUnar(val): mulDefault("-1", not_ar2dif(val));
+        }
+    }
+
+    sumDiff(val1:string, val2:string) ->string{
+        if(val2 == "0"){
+            if(val1 == "0"){
+                "0";
+            } else{
+                "("+val1+")";
+            }
+        } else{
+            if(val1 == "0"){
+                "("+val2+")";
+            } else{
+                "("+val1+"+"+val2+")";
+            }
+        }
+    }
+
+    difDiff(val1:string, val2:string) ->string{
+        if(val2 == "0"){
+            if(val1 == "0"){
+                "0";
+            } else{
+                "("+val1+")";
+            }
+        } else{
+            if(val1 == "0"){
+                "("+"-"+val2+")";
+            } else{
+                if(val1 == val2){
+                    "0";
+                } else{
+                    "("+val1+"-"+val2+")";
+                }
+            }
+        }
+    }
+
+    devDefault(val1:string, val2:string) ->string{
+        if(val1 == "0"){
+            "0"
+        } else{
+            "("+val1+"/"+val2+")"
+        }
+    }
+
+    mulDefault(val1:string, val2:string) ->string{
+        if(val2 == "0" || val1 == "0"){
+            "0"
+        } else{
+            if(val2 == "1"){
+                val1;
+            } else{
+                if(val1 == "1"){
+                    val2;
+                } else{
+                    val1+"*"+val2;
+                }
+            }
+        }
+    }
+
+    mulDiff(val1:string, val2:string, val3:string, val4:string) ->string{
+        if(val4=="0" || val1=="0"){
+            "0";
+        } else{
+            v1=mulDefault(val1, val2);
+            v2=mulDefault(val3, val4);
+
+            sumDiff(v1, v2);
+        }
+    }
+
+    partDifDiff(val1:string, val2:string, val3:string, val4:string) -> string{
+        if(val4=="0"){
+            "0";
+        } else{
+            v1=mulDefault(val1, val2);
+            v2=mulDefault(val3, val4);
+
+            result = difDiff(v1, v2);
+
+            if(result == "0"){
+                "0";
+            } else{
+                "("+result+"/"+"("+val1+"*"+val1+")"+")";
+            }
+        }
+    }
+
+    ar2dif(e : ArExpr) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): sumDiff(ar2dif(rhs), ar2dif(lhs));
+            ArDif(lhs, rhs): difDiff(ar2dif(rhs), ar2dif(lhs));
+            ArMul(lhs, rhs): mulDiff(not_ar2dif(lhs), ar2dif(rhs), ar2dif(lhs), not_ar2dif(rhs));
+            ArDiv(lhs, rhs): partDifDiff(not_ar2dif(rhs), ar2dif(lhs), ar2dif(rhs), not_ar2dif(lhs));
+            ArVar(val): "1";
+            ArInt(val): "0";
+            ArUnar(val): mulDefault("-1", ar2dif(val));
+        }
+    }
+
+
+    main() {
+
+     expr = "((x*x)*x)";
+
+
+     tmp = ar2dif(s2ar(expr));
+     println(tmp);
+     
+
+    quit(0);
+}

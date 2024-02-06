@@ -1,0 +1,659 @@
+import lingo/pegcode/driver;
+import lingo/peg;
+import lingo/linecolumn;
+import text/deserialize_string;
+import lingo/pegaction;
+import ds/hashmap;
+
+    ArExpr ::= ArSum, ArMul, ArDif, ArDiv, ArInt, ArVar, ArUnar;
+        ArSum(lhs : ArExpr, rhs : ArExpr);
+        ArMul(lhs : ArExpr, rhs : ArExpr);
+        ArDif(lhs : ArExpr, rhs : ArExpr);
+        ArDiv(lhs : ArExpr, rhs : ArExpr);
+        ArUnar(S : ArExpr);
+        ArInt(val : int);
+        ArVar(val : string);
+
+    s2ar(str : string) -> ArExpr{
+        e_gr = "#include grammar3.lingo";
+        parsic(
+            compilePegGrammar(e_gr),
+            str,
+            SemanticActions(setTree(defaultPegActions.t, "CreateString", \s ->s[0]))
+        )
+    }
+
+    
+    Mnoj : (digit : int, result : HashMap<string, int>);
+    Viraj : (value : HashMap<HashMap<string, int>, int>);
+
+    printMap(map : HashMap<string, int>)->void{
+        iterHashMap(map, \key, val->println(key+" "+i2s(val)));
+    }
+
+    mulDefault(val1:Mnoj, val2:Mnoj) ->Mnoj{
+        result1 = val1.result;
+        result2 = val2.result;
+
+        mergeHashMapCustom(result1, result2, \key, v1, v2->v1+v2);
+
+        tmp = Mnoj((val1.digit*val2.digit), result1);
+        if(tmp.digit==0){
+            Mnoj(0, makeHashMap(\str->1));
+        } else{
+            tmp;
+        }
+    }
+
+    printMnoj(v:Mnoj) ->void{
+        println("digit "+i2s(v.digit));
+        printMap(v.result);
+    }
+
+    mulVir(vir1:Viraj, vir2:Viraj) -> Viraj{
+
+        map1 = vir1.value;
+        map2 = vir2.value;
+
+        result = foldHashMap(map1, getZeroViraj(), \key1,val1,res1 ->{
+            
+            retVal2 = foldHashMap(map2, getZeroViraj(), \key2,val2,res2 ->{
+                obert1 = copyHashMap(key1);
+                obert2 = copyHashMap(key2);
+                
+                v1 = Mnoj(val1, obert1);
+                v2 = Mnoj(val2, obert2);
+                
+                tmp2 = mulDefault(v1, v2);
+
+                maptmp = makeHashMap(\str->1);
+                setHashMap(maptmp, tmp2.result, tmp2.digit);
+
+                check = sumVir(Viraj(maptmp), res2);
+                check;
+            });
+            sumVir(retVal2, res1);
+        });
+        result;
+    }
+
+    equalMap(m1:HashMap<string, int>, m2:HashMap<string, int>)->bool{
+        ret = ref true;
+        if(sizeHashMap(m1) != sizeHashMap(m2)){
+            ret := false
+        }
+        iterHashMap(m1, \key,val->{
+            tmp = lookupHashMap(m2, key);
+            if(isNone(tmp)){
+                ret := false
+            } else{
+                rez = either(tmp, -1);
+                if(val==rez){
+
+                } else{
+                    ret := false
+                }
+            }
+        })
+        ^ret;
+    }
+
+    hasKey(map:HashMap<HashMap<string, int>, int>, key:HashMap<string, int>)->bool{
+        ret = ref false;
+        iterHashMap(map, \key1,val->{
+            if(equalMap(key,key1)){
+                ret := true
+            } else{
+
+            }
+        })
+        ^ret;
+    }
+
+    getValByKey(map:HashMap<HashMap<string, int>, int>, key:HashMap<string, int>)->int{
+        ret = ref -1;
+        iterHashMap(map, \key1,val->{
+            if(equalMap(key1,key)){
+                ret := val
+            } else{
+
+            }
+        })
+        ^ret;
+    }
+
+    sumVir(val1:Viraj, val2:Viraj)->Viraj{
+        map1 = val1.value;
+        map2 = val2.value;
+
+        rez1 = foldHashMap(map1, makeHashMap(\str->1), \key,val,result->{
+            if(hasKey(map2, key)){
+                val22 = getValByKey(map2, key);
+                setHashMap(result, key, (val+val22));
+                result;
+            } else{
+                setHashMap(result, key, val);
+                result;
+            }
+        });
+
+        rez2 = foldHashMap(map2, makeHashMap(\str->1), \key,val,result->{
+            if(hasKey(map1, key)){
+                result;
+            } else{
+                setHashMap(result, key, val);
+                result;
+            }
+        });
+
+        mergeHashMap(rez1, rez2);
+        retur = Viraj(rez1);
+        retur;
+    }
+
+    diffVir(val1:Viraj, val2:Viraj)->Viraj{
+        map1 = val1.value;
+        map2 = val2.value;
+
+        rez1 = foldHashMap(map1, makeHashMap(\str->1), \key,val,result->{
+            if(hasKey(map2, key)){
+                val22 = getValByKey(map2, key);
+                setHashMap(result, key, (val-val22));
+                result;
+            } else{
+                setHashMap(result, key, val);
+                result;
+            }
+        });
+
+        rez2 = foldHashMap(map2, makeHashMap(\str->1), \key,val,result->{
+            if(hasKey(map1, key)){
+                result;
+            } else{
+                setHashMap(result, key, -1*val);
+                result;
+            }
+        });
+        mergeHashMap(rez1, rez2);
+        Viraj(rez1);
+    }
+
+    mulDrob(val1:Pair<Viraj, Viraj>, val2:Pair<Viraj, Viraj>) ->Pair<Viraj, Viraj>{
+        v1_ch = val1.first;
+        v1_zn = val1.second;
+
+        v2_ch = val2.first;
+        v2_zn = val2.second;
+
+        tmp = Pair(mulVir(v1_ch, v2_ch), mulVir(v1_zn, v2_zn));
+
+        tmp;
+    }
+
+    divDrob(val1:Pair<Viraj, Viraj>, val2:Pair<Viraj, Viraj>) ->Pair<Viraj, Viraj>{
+        v1_ch = val1.first;
+        v1_zn = val1.second;
+        v2_ch = val2.first;
+        v2_zn = val2.second;
+
+        Pair(mulVir(v1_ch, v2_zn), mulVir(v1_zn, v2_ch));
+    }
+
+    summDrob(val1:Pair<Viraj, Viraj>, val2:Pair<Viraj, Viraj>) ->Pair<Viraj, Viraj>{
+        v1_ch = val1.first;
+        v1_zn = val1.second;
+
+        v2_ch = val2.first;
+        v2_zn = val2.second;
+
+
+        if(equalsHashMap(v1_zn.value,v2_zn.value)){
+            Pair(sumVir(v1_ch,v2_ch), v1_zn);
+        } else{
+            tmp = Pair(sumVir(mulVir(v1_ch, v2_zn), mulVir(v2_ch, v1_zn)), mulVir(v1_zn, v2_zn));
+
+            tmp;
+        }        
+    }
+
+    printViraj(vir : Viraj)->void{
+        map = vir.value;
+        iterHashMap(map, \k,v->{
+            println("!!!");
+            println("key");
+            printMap(k);
+            println("key2");
+            println(i2s(v));
+            println("!!!");
+        })
+    }
+
+    diffDrob(val1:Pair<Viraj, Viraj>, val2:Pair<Viraj, Viraj>) ->Pair<Viraj, Viraj>{
+        v1_ch = val1.first;
+        v1_zn = val1.second;
+
+        v2_ch = val2.first;
+        v2_zn = val2.second;
+
+        if(v1_zn == v2_zn){
+            Pair(diffVir(v1_ch,v2_ch), v1_zn);
+        } else{
+            tmp = Pair(diffVir(mulVir(v1_ch, v2_zn), mulVir(v2_ch, v1_zn)), mulVir(v1_zn, v2_zn));
+            // println("diff");
+            // printVir(tmp.first);
+            tmp;
+        }        
+    }
+
+    getSign(val:int)->int{
+        if(val<0){
+            -1;
+        } else{
+            1
+        }
+    }
+
+    getOneViraj() ->Viraj{
+        tmp = makeHashMap(\str->1);
+
+        result1 = makeHashMap(\str->1);
+        setHashMap(result1, tmp, 1);
+
+        Viraj(result1);
+    }
+    getExprPerem(e:ArExpr)->[string]{
+        switch (e) {
+            ArSum(lhs, rhs): concat(getExprPerem(rhs), getExprPerem(lhs));
+            ArDif(lhs, rhs): concat(getExprPerem(rhs), getExprPerem(lhs));
+            ArMul(lhs, rhs): concat(getExprPerem(rhs), getExprPerem(lhs));
+            ArDiv(lhs, rhs): concat(getExprPerem(rhs), getExprPerem(lhs));
+            ArInt(val): arrayPush([], i2s(val));
+            ArVar(val): arrayPush([], val);
+            ArUnar(val): concat(arrayPush([],i2s(-1)), getExprPerem(val));
+        }
+    }
+
+    soutPerem(v:[string])->void{
+        println("");
+        iter(v, \val->{
+            println("perem "+val);
+        })
+        println("");
+    }
+
+
+    equalPeremenn(e1:ArExpr,e2:ArExpr, map:HashMap<string,string>)->bool{
+        //map=makeHashMap(\s->1);
+        tmp1=getExprPerem(e1);
+        tmp2=getExprPerem(e2);
+        // soutPerem(tmp1);
+        // soutPerem(tmp2);
+        ret = ref true;
+        if(length(tmp1)==length(tmp2)){
+            iteri(tmp1, \it,val->{
+                tt=lookupHashMap(map,val);
+                if(isNone(tt)){
+                    setHashMap(map, val, tmp2[it]);
+                } else{
+                    ttt=either(tt, "");
+                    if(ttt==tmp2[it]){
+                    } else{
+                        ret := false;
+                    }
+                }
+            })
+            //setHashMap(map, s2ar("z"), s2ar("(-x)"));
+            ^ret;
+        } else{
+            false;
+        }
+    }
+
+    equalExpr(e1:ArExpr,e2:ArExpr)->bool{
+        switch (e1) {
+            ArSum(lhs1, rhs1): {
+                switch(e2){
+                    ArSum(lhs2,rhs2): equalExpr(lhs1, lhs2) && equalExpr(rhs1, rhs2);
+                    default: false;
+                }
+            }
+            ArDif(lhs1, rhs1): {
+                switch(e2){
+                    ArDif(lhs2,rhs2): equalExpr(lhs1, lhs2) && equalExpr(rhs1, rhs2);
+                    default: false;
+                }
+            }
+            ArMul(lhs1, rhs1): {
+                switch(e2){
+                    ArMul(lhs2,rhs2): equalExpr(lhs1, lhs2) && equalExpr(rhs1, rhs2);
+                    default: false;
+                }
+            }
+            ArDiv(lhs1, rhs1): {
+                switch(e2){
+                    ArDiv(lhs2,rhs2): equalExpr(lhs1, lhs2) && equalExpr(rhs1, rhs2);
+                    default: false;
+                }
+            }
+            ArVar(val1): {
+                // switch(e2){
+                //     ArVar(val2): val1==val2;
+                //     default: false;
+                // }
+                true;
+            }
+            ArInt(val1): {
+                switch(e2){
+                    ArInt(val2): val1==val2;
+                    default: false;
+                }
+            }
+            ArUnar(val1): {
+                switch(e2){
+                    ArUnar(val2): equalExpr(val1, val2);
+                    default: false;
+                }
+            }
+        }
+    }
+
+    getZeroViraj() ->Viraj{
+        tmp = makeHashMap(\str->1);
+
+        result1 = makeHashMap(\str->1);
+        setHashMap(result1, tmp, 0);
+
+        Viraj(result1);
+    }
+
+    createInt(val:int) ->Pair<Viraj,Viraj>{
+        tmp = makeHashMap(\str->1);
+
+        result1 = makeHashMap(\str->1);
+        setHashMap(result1, tmp, val);
+
+        Pair(Viraj(result1),getOneViraj());
+    }
+
+    createVar(val:string) ->Pair<Viraj,Viraj>{
+        tmp = makeHashMap(\str->1);
+        setHashMap(tmp, val, 1);
+
+        result1 = makeHashMap(\str->1);
+        setHashMap(result1, tmp, 1);
+
+        Pair(Viraj(result1),getOneViraj());
+    }
+
+    ar2drob(e : ArExpr) -> Pair<Viraj,Viraj>{
+        switch (e) {
+            ArSum(lhs, rhs): summDrob(ar2drob(rhs), ar2drob(lhs));
+            ArDif(lhs, rhs): diffDrob(ar2drob(lhs), ar2drob(rhs));
+            ArMul(lhs, rhs): mulDrob(ar2drob(lhs), ar2drob(rhs));
+            ArDiv(lhs, rhs): divDrob(ar2drob(lhs), ar2drob(rhs));
+            ArInt(val): createInt(val);
+            ArVar(val): createVar(val);
+            ArUnar(val): mulDrob(createInt(-1), ar2drob(val));
+        }
+    }
+
+    getMatch(val:string, map:HashMap<string,string>)->string{
+        lookupHashMapDef(map, val, "");
+    }
+
+    changePeremm(e:ArExpr, map:HashMap<string,string>)->ArExpr{
+        switch (e) {
+            ArSum(lhs, rhs): ArSum(changePeremm(rhs,map), changePeremm(lhs,map));
+            ArDif(lhs, rhs): ArDif(changePeremm(lhs,map), changePeremm(rhs,map));
+            ArMul(lhs, rhs): ArMul(changePeremm(lhs,map), changePeremm(rhs,map));
+            ArDiv(lhs, rhs): ArDiv(changePeremm(lhs,map), changePeremm(rhs,map));
+            ArInt(val): ArInt(s2i(getMatch(i2s(val),map)));
+            ArVar(val): ArVar(getMatch(val,map));
+            ArUnar(val): ArUnar(changePeremm(val,map));
+        }
+    }
+
+    changeExprs(val:ArExpr, map:HashMap<ArExpr, ArExpr>)->ArExpr{
+    foldHashMap(map, val, \k,v,ret->{
+        map2=makeHashMap(\s->1);
+        if(equalExpr(k, val) && equalPeremenn(k, val,map2)){
+            changePeremm(v,map2);
+        } else{
+            ret;
+        }
+    })
+   }
+
+   allchangeExprs(val:ArExpr, map:HashMap<ArExpr, ArExpr>)->ArExpr{
+    tmp = changeExprs(val,map);
+    map2=makeHashMap(\s->1);
+    if(equalExpr(val, tmp) && equalPeremenn(val, tmp, map2)){
+        changePeremm(tmp,map2);
+        //tmp;
+    } else{
+        changeExprs(tmp,map);
+    }
+   }
+
+    ar2drob2(e : ArExpr, map:HashMap<ArExpr, ArExpr>) -> ArExpr{
+        switch (e) {
+            ArSum(lhs, rhs): {
+                e1 = ar2drob2(lhs,map);
+                e2 = ar2drob2(rhs,map);
+                allchangeExprs(ArSum(e2, e1),map);
+            }
+            ArDif(lhs, rhs): {
+                e1 = ar2drob2(lhs,map);
+                e2 = ar2drob2(rhs,map);
+                allchangeExprs(ArDif(e2, e1),map);
+            }
+            ArMul(lhs, rhs): {
+                e1 = ar2drob2(lhs,map);
+                e2 = ar2drob2(rhs,map);
+
+                tmp=changeExprs(ArMul(e2, e1),map);
+                
+                tmp;
+            };
+            ArDiv(lhs, rhs): {
+                e1 = ar2drob2(lhs,map);
+                e2 = ar2drob2(rhs,map);
+                allchangeExprs(ArDiv(e1, e2),map);
+            }
+            ArInt(val):{
+                allchangeExprs(ArInt(val),map);
+            } 
+            ArVar(val): {
+                allchangeExprs(ArVar(val),map);
+            }
+            ArUnar(val): {
+                e1 = ArInt(-1);
+                e2 = ar2drob2(val,map);
+                allchangeExprs(ArMul(e2, e1),map);
+            }
+        }
+    }
+
+    getKey(map:HashMap<string, int>)->string{
+        foldHashMap(map, "", \key,v,str->{
+        if(v==0){
+            str;
+        } else if(v==1){
+            str+key;
+        } else{
+            str+key+"^"+i2s(v);
+        }
+        })
+    }
+
+    printVir(val:Viraj,isCh:bool)->string{
+        ret = ref true;
+        char = ref "";
+        tmp = foldHashMap(val.value, "", \key,v,str->{
+            keyV = getKey(key);
+            if(v==0){
+                str;
+            } else if(v==1){
+                rezz=str+^char+keyV;
+                if(^ret){
+                    char := "+";
+                    ret := false;
+                }
+                rezz;
+            } else if(v<0){
+                if(v==-1){
+                    rezz=str+"-"+keyV;
+                    if(^ret){
+                        char := "+";
+                        ret := false;
+                    }
+                    rezz;
+                } else{
+                    rezz=str+i2s(v)+keyV;
+                    if(^ret){
+                        char := "+";
+                        ret := false;
+                    }
+                    rezz;
+                }
+            } else{
+                if(strlen(keyV)==0){
+                    rezz=str+^char+i2s(v);
+                    if(^ret){
+                        char := "+";
+                        ret := false;
+                    }
+                    rezz;
+                } else{
+                    rezz=str+^char+i2s(v)+"*"+keyV;
+                    if(^ret){
+                        char := "+";
+                        ret := false;
+                    }
+                    rezz;
+                }
+            }
+        })
+        if(strlen(tmp)==0){
+            if(isCh){
+                "0";
+            } else{
+                "1";
+            }
+        } else{
+            tmp;
+        }
+    }
+
+    hasKey2(m1:HashMap<string, int>, key:string)->bool{
+        tmp = lookupHashMap(m1, key);
+        !isNone(tmp);
+    }
+
+    reduse(pair:Pair<Viraj,Viraj>, red:string)->Pair<Viraj,Viraj>{
+        m1 = pair.first.value;
+        m2 = pair.second.value;
+        iterHashMap(m1, \k,v->{
+            tmp = either(lookupHashMap(k, red), -1);
+            setHashMap(k, red, tmp-1);
+        })
+        iterHashMap(m2, \k2,v2->{
+            tmp2 = either(lookupHashMap(k2, red), -1);
+            setHashMap(k2, red, tmp2-1);
+        })
+
+        Pair(Viraj(m1), Viraj(m2));
+    }
+
+    canReduse(pair:Pair<Viraj,Viraj>)->Pair<[string],bool>{
+        m1 = hashMapKeys(pair.first.value);
+        m2 = hashMapKeys(pair.second.value);
+        m = concat(m1, m2);
+        ekz = m1[0];
+        if(sizeHashMap(ekz)==0){
+            println("in if");
+            Pair([], false);
+        } else{
+            println("in else");
+            canSokr = foldHashMap(ekz, [], \k,v,povtor->{
+                println("k - "+k);
+                ret = ref true;
+                iter(m, \val->{
+                    if(sizeHashMap(val)==0){
+                    } else{
+                        if(hasKey2(val, k)){
+                        } else{
+                            ret := false;
+                        }
+                    }
+                })
+                if(^ret == true){
+                    arrayPush(povtor, k);
+                } else{
+                    povtor;
+                }
+            })
+            if(length(canSokr)==0){
+                Pair([], false);
+            } else{
+                Pair(canSokr, true);
+            }
+        }
+    }
+
+    Zamena(val:ArExpr, map:HashMap<ArExpr, ArExpr>)->ArExpr{
+        tmp = ar2drob2(val, map);
+        map2=makeHashMap(\s->1);
+        if(equalExpr(tmp,val) && equalPeremenn(tmp,val, map2)){
+            changePeremm(tmp,map2);
+            //tmp;
+        } else{
+            ar2drob2(tmp, map);
+        }
+    }
+
+    not_ar2(e : ArExpr) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): "("+not_ar2(rhs)+"+"+not_ar2(lhs)+")";
+            ArDif(lhs, rhs): "("+not_ar2(lhs)+"-"+not_ar2(rhs)+")";
+            ArMul(lhs, rhs): "("+not_ar2(rhs)+"*"+not_ar2(lhs)+")";
+            ArDiv(lhs, rhs): "("+not_ar2(lhs)+"/"+not_ar2(rhs)+")";
+            ArVar(val): val;
+            ArInt(val): i2s(val);
+            ArUnar(val): "(-1*"+not_ar2(val)+")";
+        }
+    }
+
+
+    main() {
+
+    //expr = "((((x*y)+(2*y))+y)/(((2*x)*x)+((3*x)*x)))";
+
+    //expr = "(x-x)";
+    //expr = "(a/a)";
+    expr = "(((x*x)-(y*y))/((a*a)-(b*b)))";
+
+
+    map = makeHashMap(\str->1);
+
+    setHashMap(map, s2ar("((x*x)-(y*y))"), s2ar("((x+y)*(x-y))"));
+    //setHashMap(map, s2ar("(3*(y*y))"), s2ar("2"));
+    //setHashMap(map, s2ar("((y*(y*y))*y)"), s2ar("c"));
+
+    //map = makeHashMap(\str->1);
+
+    // setHashMap(map, s2ar("y"), s2ar("z"));
+    // setHashMap(map, s2ar("z"), s2ar("(-x)"));
+
+    tmp2 = Zamena(s2ar(expr), map);
+
+    tmp = not_ar2(tmp2);
+    println(tmp);
+
+    // tmp = ar2drob(tmp2);
+    // println(printVir(tmp.first, true));
+    // println("/");
+    // println(printVir(tmp.second, false));
+
+    quit(0);
+}

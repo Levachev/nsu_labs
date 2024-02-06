@@ -1,0 +1,85 @@
+import lingo/pegcode/driver;
+import lingo/peg;
+import lingo/linecolumn;
+import text/deserialize_string;
+import lingo/pegaction;
+
+push(stack : [int], val : int) -> [int]{
+    arrayPush(stack, val);
+}
+
+top(stack : [int]) -> int{
+    lastElement(stack, -99);
+}
+
+top2(stack : [int]) -> int{
+    elementAt(stack, length(stack)-2, -99);
+}
+
+pop(stack : [int]) -> [int]{
+    removeIndex(stack, length(stack)-1);
+}
+
+pop2(stack : [int]) -> [int]{
+    removeIndex(removeIndex(stack, length(stack)-1), length(stack)-1);
+}
+
+makeStack() -> [int]{
+    [];
+}
+
+    ArExpr ::= ArSum, ArMul, ArInt;
+        ArSum(lhs : ArExpr, rhs : ArExpr);
+        ArMul(lhs : ArExpr, rhs : ArExpr);
+        ArInt(val : int);
+
+    ar2polsk(e : ArExpr) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): ar2polsk(lhs)+ " " + ar2polsk(rhs) + " " + "+";
+            ArMul(lhs, rhs): ar2polsk(lhs)+ " " + ar2polsk(rhs) + " " + "*" ;
+            ArInt(val): i2s(val);
+        }
+    }
+
+
+    s2ar(str : string) -> ArExpr{
+        e_gr = "#include grammar.lingo";
+        parsic(
+            compilePegGrammar(e_gr),
+            str,
+            SemanticActions(setTree(defaultPegActions.t, "CreateInt", \s ->s2i(s[0])))
+        )
+    }
+
+    Mystruct : (sum : int, stack : [int]);
+
+    getAnswer(str : string) -> int{
+        arr = strSplit(str, " ");
+        tmp = fold(arr, Mystruct(0, makeStack()), \struct,val ->{
+            if(val != "*" && val != "+"){
+                Mystruct(struct.sum, push(struct.stack, s2i(val)));
+            } else if(isSpace(val)){
+                struct;
+            } else{
+                if(val == "*"){
+                    tmp = top(struct.stack)*top2(struct.stack);
+                    Mystruct(top(struct.stack)*top2(struct.stack), push(pop2(struct.stack), tmp));
+                } else{
+                    tmp = top(struct.stack)+top2(struct.stack);
+                    Mystruct(top(struct.stack)+top2(struct.stack), push(pop2(struct.stack), tmp));
+                }
+            }
+        });
+        tmp.sum;
+    }
+
+    main() {
+    // expr = "((((((1 + 2)*4)+5)*2)*7)+3)";
+
+    // println(ar2polsk(s2ar(expr)));
+
+    // println(getAnswer(ar2polsk(s2ar(expr))));
+
+
+    quit(0);
+}

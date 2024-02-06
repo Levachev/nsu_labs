@@ -1,0 +1,39 @@
+import string;
+import ds/tree;
+
+getPair(iter : int, n : int, tree : Tree<int, int>, arr : [int]) -> Pair<int,int>{
+    res = lookupTreeDef(tree, n-arr[iter], n+1);
+    //println(i2s(arr[iter])+" "+i2s(n-arr[iter]) + " "+i2s(res));
+    if(res == n+1){
+        Pair(-1, res);
+    } else {
+        Pair(arr[iter], arr[res]);
+    }
+}
+
+getPairs(arr : [int], n : int) -> [Pair<int, int>]{
+    
+    myTree = foldi(arr, makeTree(), \iter,tree,x -> setTree(tree, x, iter));
+
+    myResult = foldi(arr, [], \iter,result,x -> arrayPush(result,getPair(iter, n, myTree, arr)));
+
+    myResult;
+}
+
+printfPair(pair : Pair<int, int>) -> void{
+    if(firstOfPair(pair)!=-1){
+        println(i2s(firstOfPair(pair)) + " " + i2s(secondOfPair(pair)));
+    } else{
+    }
+}
+
+main() {
+    arr=[5,4,3,2,7];
+    n = 9;
+
+    result = getPairs(arr, n);
+
+    iteri(result, \iter,y->printfPair(result[iter]));
+
+    quit(0);
+}

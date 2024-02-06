@@ -1,0 +1,52 @@
+import string;
+
+arr2s(arr : [int]) -> string{
+    strGlue(map(arr, i2s), ",");
+}
+
+fib_tail(arr : [int], n : int, first : int, second : int) -> [int]{
+    if (n <= 0 ){
+        arr;
+    } else{
+        arr2 = arrayPush(arr, second);
+        fib_tail(arr2, n-1, second, first+second);
+    }
+}
+
+fib(n : int) -> [int]{
+    if (n == 0 ){
+        [];
+    } else if(n==1){
+        [0];
+    } else if(n==2){
+        [0,1];
+    } else{
+        x=fib(n-1);
+        concat(x, [x[n-2]+x[n-3]]);
+    }
+}
+
+fib_ref(arr : ref [int], n : int, first : int, second : int) -> [int]{
+    if (n <= 0 ){
+        ^arr;
+    } else{
+        refArrayPush(arr, second);
+        fib_ref(arr, n-1, second, first+second);
+    }
+}
+
+fib_ref2(arr : ref [int], n : int, first : int, second : int) -> void{
+    if (n <= 0 ){
+    } else{
+        refArrayPush(arr, second);
+        fib_ref2(arr, n-1, second, first+second);
+    }
+}
+
+main() {
+    arr = ref [0];
+    n=8;
+    fib_ref2(arr, n-1, 0, 1);
+    println("arr: "+arr2s(^arr));
+    quit(0);
+}

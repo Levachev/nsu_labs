@@ -1,0 +1,296 @@
+import lingo/pegcode/driver;
+import lingo/peg;
+import lingo/linecolumn;
+import text/deserialize_string;
+import lingo/pegaction;
+import ds/hashmap;
+
+push(stack : [Pair<int, int>], val : Pair<int, int>) -> [Pair<int, int>]{
+    arrayPush(stack, val);
+}
+
+top(stack : [Pair<int, int>]) -> Pair<int, int>{
+    lastElement(stack, Pair(0,0));
+}
+
+top2(stack : [Pair<int, int>]) -> Pair<int, int>{
+    elementAt(stack, length(stack)-2, Pair(0,0));
+}
+
+pop(stack : [Pair<int, int>]) -> [Pair<int, int>]{
+    removeIndex(stack, length(stack)-1);
+}
+
+pop2(stack : [Pair<int, int>]) -> [Pair<int, int>]{
+    pop(pop(stack));
+    //removeIndex(removeIndex(stack, length(stack)-1), length(stack)-1);
+}
+
+makeStack() -> [Pair<int, int>]{
+    [];
+}
+
+printStack(stack : [Pair<int, int>]) ->void{
+    println("begin :");
+    //println(strGlue(map(stack, d2s), " , "));
+    println("end");
+}
+
+    ArExpr ::= ArSum, ArMul, ArDif, ArDiv, ArInt, ArVar, ArUnar;
+        ArSum(lhs : ArExpr, rhs : ArExpr);
+        ArMul(lhs : ArExpr, rhs : ArExpr);
+        ArDif(lhs : ArExpr, rhs : ArExpr);
+        ArDiv(lhs : ArExpr, rhs : ArExpr);
+        ArUnar(S : ArExpr);
+        ArInt(val : Pair<int, int>);
+        ArVar(val : string);
+
+    s2ar(str : string) -> ArExpr{
+        e_gr = "#include grammar.lingo";
+        parsic(
+            compilePegGrammar(e_gr),
+            str,
+            SemanticActions(setTree(defaultPegActions.t, "CreateString", \s ->s[0]))
+        )
+    }
+
+    toPair(val : string, map : HashMap<string, Pair<int, int>>) -> Pair<int, int>{
+        tmp = lookupHashMap(map, val);
+        if(isNone(tmp)){
+            Pair(0,0);
+        } else{
+            either(tmp, Pair(0,0));
+        }
+    }
+
+    nod(val1 : int, val2 : int) -> int{
+        if(val1>=val2){
+            if(mod(val1,val2)==0){
+                val2;
+            } else {
+                nod(mod(val1,val2), val2);
+            }
+        } else{
+            if(mod(val2,val1)==0){
+                val1;
+            } else {
+                nod(val1, mod(val2,val1));
+            }
+        }
+    }
+
+    isNegative(val : int) -> bool{
+        if(val>=0){
+            false;
+        } else{
+            true;
+        }
+    }
+
+    reversePair(pair : Pair<int, int>) -> Pair<int, int>{
+        val1 = pair.first;
+        val2 = pair.second;
+        Pair(val2, val1);
+    }
+
+    reduce(pair : Pair<int, int>) -> Pair<int, int>{
+        //printPair(pair);
+
+        v1 = pair.first;
+        v2 = pair.second;
+
+        // println("reduce");
+        // println(i2s(v1));
+        // println(i2s(v2));
+        // println("");
+
+        if(v1==0){
+            Pair(v1, 1);
+        } else{
+
+            nod = nod(iabs(v1), iabs(v2));
+
+            sign1 = isNegative(v1);
+            sign2 = isNegative(v2);
+
+            val1 = iabs(v1);
+            val2 = iabs(v2);
+
+            if(sign1 == sign2){
+                Pair(val1/nod, val2/nod);
+            } else{
+                Pair((-1)*(val1/nod), val2/nod);
+            }
+        }
+    }
+
+    toCanon(pair : Pair<int, int>) -> Pair<int, int>{
+        v1 = pair.first;
+        v2 = pair.second;
+
+        sign1 = isNegative(v1);
+        sign2 = isNegative(v2);
+
+        val1 = iabs(v1);
+        val2 = iabs(v2);
+
+        if(sign1 == sign2){
+            Pair(val1, val2);
+        } else{
+            Pair((-1)*(val1), val2);
+        }
+    }
+
+    isNegativePair(pair : Pair<int, int>) -> bool{
+        isNegative(pair.first);
+    }
+
+    printPair(pair : Pair<int, int>) -> void{
+        println(i2s(pair.first)+" "+i2s(pair.second));
+    }
+
+    mul1(val1 : Pair<int, int>, val2 : Pair<int, int>) -> Pair<int, int>{
+        // println("mul1");
+        // printPair(val1);
+        // printPair(val2);
+        // println("");
+        v1 = toCanon(val1);
+        v2 = toCanon(val2);
+
+        tmp1 = Pair(v1.first, v2.second);
+        tmp2 = Pair(v2.first, v1.second);
+
+        if(v1.second==0 || v2.second==0){
+            Pair(0, 0);
+        } else{
+
+            reduce(tmp1);
+            reduce(tmp2);
+
+            reduce(Pair(tmp1.first*tmp2.first, tmp1.second*tmp2.second));
+        }
+    }
+
+    div1(val1 : Pair<int, int>, val2 : Pair<int, int>) -> Pair<int, int>{
+        // println("div1");
+        // printPair(val1);
+        // printPair(val2);
+        // println("");
+
+        v1 = toCanon(val1);
+        v2 = toCanon(val2);
+
+        tmp1 = Pair(v1.first, v2.first);
+        tmp2 = Pair(v2.second, v1.second);
+
+        if(v1.second==0 || v2.first==0){
+            Pair(0, 0);
+        } else{
+
+            reduce(tmp1);
+            reduce(tmp2);
+
+            reduce(Pair(tmp1.first*tmp2.first, tmp1.second*tmp2.second));
+        }
+    }
+
+    sum1(val1 : Pair<int, int>, val2 : Pair<int, int>) -> Pair<int, int>{
+        // println("sum1");
+        // printPair(val1);
+        // printPair(val2);
+        // println("");
+
+        v1 = toCanon(val1);
+        v2 = toCanon(val2);
+
+        ch1 = v1.first;
+        ch2 = v2.first;
+
+        z1 = v1.second;
+        z2 = v2.second;
+
+        if(z1==0 || z2==0){
+            Pair(0, 0);
+        } else{
+
+            nod = nod(z1, z2);
+
+            if(z1 == 0 || nod==0 || z2==0){
+                println("diff on zero");
+                quit(0);
+            }
+
+            nok = (z1/nod)*z2;
+
+            reduce(Pair(ch1*(nok/z1) + ch2*(nok/z2), nok));
+        }
+    }
+
+    diff1(val1 : Pair<int, int>, val2 : Pair<int, int>) -> Pair<int, int>{
+        // println("diff1");
+        // printPair(val1);
+        // printPair(val2);
+        // println("");
+
+        v1 = toCanon(val1);
+        v2 = toCanon(val2);
+
+        ch1 = v1.first;
+        ch2 = v2.first;
+
+        z1 = v1.second;
+        z2 = v2.second;
+
+        if(z1==0 || z2 ==0){
+            Pair(0, 0);
+        } else{
+
+            nod = nod(z1, z2);
+
+            println(i2s(nod));
+
+            if(z1 == 0 || nod==0 || z2==0){
+                println("diff on zero");
+                quit(0);
+            }
+
+            nok = (z1/nod)*z2;
+
+            reduce(Pair(ch1*(nok/z1) - ch2*(nok/z2), nok));
+        }
+    }
+
+    ar2pair(e : ArExpr, map : HashMap<string, Pair<int, int>>) ->Pair<int, int> {
+        switch (e) {
+            ArSum(lhs, rhs): sum1(ar2pair(lhs, map), ar2pair(rhs, map));
+            ArDif(lhs, rhs): diff1(ar2pair(lhs, map), ar2pair(rhs, map));
+            ArMul(lhs, rhs): mul1(ar2pair(lhs, map), ar2pair(rhs, map));
+            ArDiv(lhs, rhs): div1(ar2pair(lhs, map), ar2pair(rhs, map));
+            ArInt(val): val;
+            ArVar(val): toPair(val, map);
+            ArUnar(val): mul1(ar2pair(val, map), Pair(-1, 1));
+        }
+    }
+
+
+    main() {
+
+     expr = "(1/(x-(1/2)))";
+
+     map = makeHashMap(\str->1);
+
+     setHashMap(map, "x", Pair(2, 4));
+     setHashMap(map, "b", Pair(1, 2000000000));
+
+     tmp = ar2pair(s2ar(expr), map);
+
+     if(tmp.second == 0){
+        println("diff on zero");
+        quit(0);
+     } else{
+         println(i2s(tmp.first) + "/" + i2s(tmp.second));
+     }
+     
+    
+    quit(0);
+}

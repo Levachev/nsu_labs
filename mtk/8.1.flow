@@ -1,0 +1,180 @@
+import lingo/pegcode/driver;
+import lingo/peg;
+import lingo/linecolumn;
+import text/deserialize_string;
+import lingo/pegaction;
+import ds/hashmap;
+
+    ArExpr ::= ArSum, ArMul, ArDif, ArDiv, ArInt, ArVar, ArUnar;
+        ArSum(lhs : ArExpr, rhs : ArExpr);
+        ArMul(lhs : ArExpr, rhs : ArExpr);
+        ArDif(lhs : ArExpr, rhs : ArExpr);
+        ArDiv(lhs : ArExpr, rhs : ArExpr);
+        ArUnar(S : ArExpr);
+        ArInt(val : string);
+        ArVar(val : string);
+
+    s2ar(str : string) -> ArExpr{
+        e_gr = "#include grammar2.lingo";
+        parsic(
+            compilePegGrammar(e_gr),
+            str,
+            SemanticActions(setTree(defaultPegActions.t, "CreateString", \s ->s[0]))
+        )
+    }
+
+    Mystruct : (result : string, isExc : bool);
+
+    reduseSum(v1:Mystruct, v2:Mystruct) ->Mystruct{
+        if(v1.isExc == true || v2.isExc == true){
+            Mystruct("", true);
+        } else{
+
+            val1 = v1.result;
+            val2 = v2.result;
+            if(val2 == "0"){
+                if(val1 == "0"){
+                    Mystruct("0", false);
+                } else{
+                    Mystruct("("+val1+")", false);
+                }
+            } else{
+                if(val1 == "0"){
+                    Mystruct("("+val2+")", false);
+                } else{
+                    Mystruct("("+val1+"+"+val2+")", false);
+                }
+            }
+        }
+    }
+
+    reduseDiff(v1:Mystruct, v2:Mystruct) -> Mystruct{
+        if(v1.isExc == true || v2.isExc == true){
+            Mystruct("", true);
+        } else{
+
+            val1 = v1.result;
+            val2 = v2.result;
+
+            // println("in diff");
+            // println(val1);
+            // println(val2);
+
+            if(val1==val2){
+                Mystruct("0", false);
+            } else{
+                if(val2 == "0"){
+                    if(val1 == "0"){
+                        Mystruct("0", false);
+                    } else{
+                        Mystruct("("+val1+")", false);
+                    }
+                } else{
+                    if(val1 == "0"){
+                        Mystruct("(-"+val2+")", false);
+                    } else{
+                        Mystruct("("+val1+"-"+val2+")", false);
+                    }
+                }
+            }
+        }
+    }
+
+    reduseMul(v1:Mystruct, v2:Mystruct) ->Mystruct{
+        if(v1.isExc == true || v2.isExc == true){
+            Mystruct("", true);
+        } else{
+
+            val1 = v1.result;
+            val2 = v2.result;
+            if(val2 == "0" || val1 == "0"){
+                Mystruct("0", false)
+            } else{
+                if(val2 == "1"){
+                    Mystruct(val1, false);
+                } else{
+                    if(val1 == "1"){
+                        Mystruct(val2, false);
+                    } else{
+                        Mystruct("("+val1+"*"+val2+")", false);
+                    }
+                }
+            }
+        }
+    }
+
+    reduseDiv(v1:Mystruct, v2:Mystruct) ->Mystruct{
+        if(v1.isExc == true || v2.isExc == true){
+            Mystruct("", true);
+        } else{
+            val1 = v1.result;
+            val2 = v2.result;
+            if(val1 == "0"){
+                Mystruct("", true)
+            } else{
+                if(val2 == "0"){
+                    Mystruct("0", false)
+                } else{
+                    Mystruct("("+val2+"/"+val1+")", false);
+                }
+            }
+        }
+    }
+
+    reduse(e : ArExpr) -> Mystruct {
+            switch (e) {
+                ArSum(lhs, rhs): reduseSum(reduse(rhs), reduse(lhs));
+                ArDif(lhs, rhs): reduseDiff(reduse(lhs), reduse(rhs));
+                ArMul(lhs, rhs): reduseMul(reduse(rhs), reduse(lhs));
+                ArDiv(lhs, rhs): reduseDiv(reduse(rhs), reduse(lhs));
+                ArVar(val): Mystruct(val, false);
+                ArInt(val): Mystruct(val, false);
+                ArUnar(val): reduseMul(Mystruct("-1", false), reduse(val));
+            }
+        }
+
+
+    not_ar2dif(e : ArExpr) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): "("+not_ar2dif(rhs)+"+"+not_ar2dif(lhs)+")";
+            ArDif(lhs, rhs): "("+not_ar2dif(lhs)+"-"+not_ar2dif(rhs)+")";
+            ArMul(lhs, rhs): "("+not_ar2dif(rhs)+"*"+not_ar2dif(lhs)+")";
+            ArDiv(lhs, rhs): "("+not_ar2dif(lhs)+"/"+not_ar2dif(rhs)+")";
+            ArVar(val): val;
+            ArInt(val): val;
+            ArUnar(val): "("+"-1"+"*"+not_ar2dif(val)+")";
+        }
+    }
+
+    ar2dif(e : ArExpr) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): "("+ar2dif(rhs)+"+"+ar2dif(lhs)+")";
+            ArDif(lhs, rhs): "("+ar2dif(lhs)+"-"+ar2dif(rhs)+")";
+            ArMul(lhs, rhs): "("+"("+not_ar2dif(lhs)+"*"+ar2dif(rhs)+")"+"+"+"("+ar2dif(lhs)+"*"+not_ar2dif(rhs)+")"+")";
+            ArDiv(lhs, rhs): "(("+"("+not_ar2dif(rhs)+"*"+ar2dif(lhs)+")"+"-"+"("+ar2dif(rhs)+"*"+not_ar2dif(lhs)+")"+")"+"/"+"("+not_ar2dif(rhs)+"*"+not_ar2dif(rhs)+"))";
+            ArVar(val): "1";
+            ArInt(val): "0";
+            ArUnar(val): "("+"-1"+"*"+ar2dif(val)+")";
+        }
+    }
+
+
+    main() {
+
+     //expr = "((((x*x)*x)+(x*3))+3)";
+     //expr = "((1/x)/x)";
+    expr = "(1/x)";
+     tmp = ar2dif(s2ar(expr));
+     println(tmp);
+
+     tmp2 = reduse(s2ar(tmp));
+
+     if(tmp2.isExc){
+        println("del zero")
+     } else{
+        println(tmp2.result);
+     }
+     
+
+    quit(0);
+}

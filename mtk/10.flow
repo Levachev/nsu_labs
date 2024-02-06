@@ -1,0 +1,164 @@
+import lingo/pegcode/driver;
+import lingo/peg;
+import lingo/linecolumn;
+import text/deserialize_string;
+import lingo/pegaction;
+import ds/hashmap;
+
+    ArExpr ::= ArSum, ArMul, ArDif, ArDiv, ArInt, ArVar, ArUnar;
+        ArSum(lhs : ArExpr, rhs : ArExpr);
+        ArMul(lhs : ArExpr, rhs : ArExpr);
+        ArDif(lhs : ArExpr, rhs : ArExpr);
+        ArDiv(lhs : ArExpr, rhs : ArExpr);
+        ArUnar(S : ArExpr);
+        ArInt(val : string);
+        ArVar(val : string);
+
+    s2ar(str : string) -> ArExpr{
+        e_gr = "#include grammar2.lingo";
+        parsic(
+            compilePegGrammar(e_gr),
+            str,
+            SemanticActions(setTree(defaultPegActions.t, "CreateString", \s ->s[0]))
+        )
+    }
+
+    IntVal(v:string, map:HashMap<string, string>)->string{
+        tmp=lookupHashMap(map,v);
+        if(isNone(tmp)){
+            v;
+        } else{
+            tmp2=either(tmp, "");
+            tmp2;
+        }
+    }
+
+    Unar(val:string, map:HashMap<string, string>)->string{
+        v="(-"+val+")";
+        tmp=lookupHashMap(map,v);
+        if(isNone(tmp)){
+            v;
+        } else{
+            tmp2=either(tmp, "");
+            tmp2;
+        }
+    }
+
+    summ(v1:string,v2:string, map:HashMap<string, string>)->string{
+        v="("+v1+"+"+v2+")";
+        tmp=lookupHashMap(map,v);
+        if(isNone(tmp)){
+            v;
+        } else{
+            tmp2=either(tmp, "");
+            tmp2;
+        }
+    }
+
+    dif(v1:string,v2:string, map:HashMap<string, string>)->string{
+        v="("+v2+"-"+v1+")";
+        tmp=lookupHashMap(map,v);
+        if(isNone(tmp)){
+            v;
+        } else{
+            tmp2=either(tmp, "");
+            tmp2;
+        }
+    }
+
+    mul(v1:string,v2:string, map:HashMap<string, string>)->string{
+        v="("+v1+"*"+v2+")";
+        tmp=lookupHashMap(map,v);
+        if(isNone(tmp)){
+            v;
+        } else{
+            tmp2=either(tmp, "");
+            tmp2;
+        }
+    }
+
+    div(v1:string,v2:string, map:HashMap<string, string>)->string{
+        v="("+v2+"/"+v1+")";
+        tmp=lookupHashMap(map,v);
+        if(isNone(tmp)){
+            v;
+        } else{
+            tmp2=either(tmp, "");
+            tmp2;
+        }
+    }
+
+    not_ar2dif(e : ArExpr, map:HashMap<string, string>) -> string {
+        switch (e) {
+            ArSum(lhs, rhs): summ(not_ar2dif(rhs,map),not_ar2dif(lhs,map),map);
+            ArDif(lhs, rhs): dif(not_ar2dif(rhs,map),not_ar2dif(lhs,map),map);
+            ArMul(lhs, rhs): mul(not_ar2dif(rhs,map),not_ar2dif(lhs,map),map);
+            ArDiv(lhs, rhs): div(not_ar2dif(rhs,map),not_ar2dif(lhs,map),map);
+            ArVar(val): IntVal(val, map);
+            ArInt(val): IntVal(val, map);
+            ArUnar(val): Unar(not_ar2dif(val,map),map);
+        }
+    }
+
+    allZamen(value:string, map:HashMap<string, string>)->string{
+        tmp = not_ar2dif(s2ar(value), map);
+        println("");
+        println(value);
+        println(tmp);
+        println("");
+        if(tmp == value){
+            println("in if end");
+            value;
+        } else{
+            not_ar2dif(s2ar(tmp), map);
+        }
+    }
+
+main() {
+    //expr = "((y+x)*(y-x))";
+    //expr = "((y+x)*(y+x))";
+    //expr = "(((y+x)*(y+x))*(y+x))";
+    //expr = "(((((y+x)/(y-x))+(1/(x+y)))/x)+1)";
+
+    //expr = "((y/x)+(x/y))";
+    //expr = "(1*(x-y))";
+    //expr = "((((x*x)-x)*y)/(x*y))";
+
+    //expr = "(((y*y)+(x*x))+(x-y))";
+    expr = "((((x*y)+(2*y))+y)/(((2*x)*x)+((3*x)*x)))";
+    //expr = "(1*(x-y))";
+    //expr = "((((x*x)-x)*y)/(x*y))";
+
+    //expr = "(((y*y)+(x*x))+(x-y))";
+    map = makeHashMap(\str->1);
+
+    setHashMap(map, "x", "(y*y)");
+    setHashMap(map, "(3*(y*y))", "2");
+
+    expr2 = allZamen(expr, map);
+
+    println(expr);
+    println(expr2);
+
+    // tmp = ar2drob(s2ar(expr2));
+    // println(printVir(tmp.first));
+    // println("/");
+    // println(printVir(tmp.second));
+
+    //tmp2 = canReduse(tmp);
+
+    // if(tmp2.second){
+    //     val = tmp2.first[0];
+
+    //     wer=reduse(tmp, val);
+    //     println(printVir(wer.first));
+    //     println("/");
+    //     println(printVir(wer.second));
+
+    // } else{
+    //     println(printVir(tmp.first));
+    //     println("/");
+    //     println(printVir(tmp.second));
+    // }
+    quit(0);
+}
